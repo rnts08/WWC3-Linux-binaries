@@ -35,15 +35,14 @@ jobs:
       - name: Build daemon
         shell: msys2 {0}
         run: |
-          cd /c/projects/src
-          mkdir -p src/obj/crypto
-          cd src
+          cd $GITHUB_WORKSPACE/src
+          mkdir -p obj/crypto
           make -f makefile.unix USE_UPNP=1 -j2
 
       - name: Build Qt GUI
         shell: msys2 {0}
         run: |
-          cd /c/projects/src
+          cd $GITHUB_WORKSPACE
           export PATH="/c/msys64/mingw64/bin:$PATH"
           qmake "RELEASE=1" wayawolfcoin.pro
           make -j2
@@ -51,8 +50,8 @@ jobs:
       - name: Package
         run: |
           mkdir windows
-          Get-ChildItem -Path src -Filter "wayawolfcoind*" | Move-Item -Destination windows/
-          Get-ChildItem -Path . -Filter "Wayawolfcoin-qt*" | Move-Item -Destination windows/
+          Get-ChildItem -Path $GITHUB_WORKSPACE/src -Filter "wayawolfcoind*" | Move-Item -Destination windows/
+          Get-ChildItem -Path $GITHUB_WORKSPACE -Filter "Wayawolfcoin-qt*" | Move-Item -Destination windows/
           Compress-Archive -Path "windows\*" -DestinationPath "WWC3-windows-x64.zip"
 
       - name: Upload
