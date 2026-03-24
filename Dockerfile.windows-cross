@@ -1,21 +1,19 @@
 # Waya Wolf Coin - Windows Cross-Compilation
 # ===========================================
-# Uses mingw-w64 from Debian for cross-compilation
+# Uses Ubuntu 16.04 for OpenSSL 1.0 compatibility
 # Builds daemon only (Qt GUI requires additional setup)
 
-FROM debian:bookworm
+FROM ubuntu:16.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install MinGW-w64 and build dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     git \
     mingw-w64 \
-    mingw-w64-tools \
-    libboost-all-dev \
     libssl-dev \
     libdb++-dev \
+    libboost-all-dev \
     libminiupnpc-dev \
     pkg-config \
     && apt-get clean \
@@ -23,14 +21,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /build
 
-# Copy source code
 COPY . .
 
-# Fix .pro file for Windows
 RUN sed -i 's/^#  Windows begin/win32 {\n#  Windows begin/; s/^#  Windows end/#  Windows end\n}/' wayawolfcoin.pro || true
 
-# Create required directory for crypto object files
 RUN mkdir -p src/obj/crypto
 
-# Build the daemon for Windows (x86_64)
 RUN cd src && make -f makefile.unix USE_UPNP=1 CROSS=x86_64-w64-mingw32-

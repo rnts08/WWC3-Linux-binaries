@@ -34,13 +34,13 @@ jobs:
           mkdir -p windows
           if [ -f "wayawolfcoind.exe" ]; then
             mv wayawolfcoind.exe windows/
-            tar -czvf WWC3-windows-x64.tar.gz windows/
+            zip -r WWC3-windows-x64.zip windows/
           fi
 
       - name: Upload
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          if [ -f "WWC3-windows-x64.tar.gz" ]; then
-            gh release upload ${{ github.event.release.tag_name }} WWC3-windows-x64.tar.gz
+          if [ -f "WWC3-windows-x64.zip" ]; then
+            gh release upload ${{ github.event.release.tag_name }} WWC3-windows-x64.zip
           fi
