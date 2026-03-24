@@ -1,46 +1,46 @@
-name: Build Windows
-
-on:
-  release:
-    types: [published]
-
-permissions:
-  contents: write
-
-jobs:
-  build-windows:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-
-    steps:
-      - name: Checkout Dockerfiles
-        uses: actions/checkout@v4
-
-      - name: Clone WWC3 source
-        run: |
-          git clone --depth 1 https://github.com/Waya-Wolf/WWC3.git wwc3-source
-
-      - name: Prepare build context
-        run: |
-          cp Dockerfile.windows-cross wwc3-source/
-
-      - name: Build Windows binaries
-        run: |
-          docker build -f wwc3-source/Dockerfile.windows-cross -t ww-qt-windows-cross wwc3-source/
-          docker run --rm ww-qt-windows-cross cat /build/src/wayawolfcoind > wayawolfcoind.exe
-
-      - name: Create archive
-        run: |
-          mkdir -p windows
-          if [ -f "wayawolfcoind.exe" ]; then
-            mv wayawolfcoind.exe windows/
-            zip -r WWC3-windows-x64.zip windows/
-          fi
-
-      - name: Upload
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          if [ -f "WWC3-windows-x64.zip" ]; then
-            gh release upload ${{ github.event.release.tag_name }} WWC3-windows-x64.zip
-          fi
+# name: Build Windows
+# 
+# on:
+#   release:
+#     types: [published]
+# 
+# permissions:
+#   contents: write
+# 
+# jobs:
+#   build-windows:
+#     runs-on: ubuntu-latest
+#     timeout-minutes: 45
+# 
+#     steps:
+#       - name: Checkout Dockerfiles
+#         uses: actions/checkout@v4
+# 
+#       - name: Clone WWC3 source
+#         run: |
+#           git clone --depth 1 https://github.com/Waya-Wolf/WWC3.git wwc3-source
+# 
+#       - name: Prepare build context
+#         run: |
+#           cp Dockerfile.windows-cross wwc3-source/
+# 
+#       - name: Build Windows binaries
+#         run: |
+#           docker build -f wwc3-source/Dockerfile.windows-cross -t ww-qt-windows-cross wwc3-source/
+#           docker run --rm ww-qt-windows-cross cat /build/src/wayawolfcoind > wayawolfcoind.exe
+# 
+#       - name: Create archive
+#         run: |
+#           mkdir -p windows
+#           if [ -f "wayawolfcoind.exe" ]; then
+#             mv wayawolfcoind.exe windows/
+#             zip -r WWC3-windows-x64.zip windows/
+#           fi
+# 
+#       - name: Upload
+#         env:
+#           GITHUB_TOKEN: ${{ github.token }}
+#         run: |
+#           if [ -f "WWC3-windows-x64.zip" ]; then
+#             gh release upload ${{ github.event.release.tag_name }} WWC3-windows-x64.zip
+#           fi

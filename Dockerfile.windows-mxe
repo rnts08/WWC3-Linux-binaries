@@ -1,0 +1,26 @@
+# Waya Wolf Coin - Windows Cross-Compilation using MXE
+# ====================================================
+# Uses pre-built MXE environment with all dependencies
+# Builds daemon only (no Qt GUI - has boost compatibility issues)
+
+FROM sskender/altcoin-mxe:latest
+
+WORKDIR /build
+
+COPY . .
+
+RUN sed -i 's/^#  Windows begin/win32 {\n#  Windows begin/; s/^#  Windows end/#  Windows end\n}/' wayawolfcoin.pro || true
+
+RUN mkdir -p src/obj/crypto
+
+RUN cd src && \
+    make -f makefile.unix \
+    USE_UPNP=1 \
+    CC=i686-w64-mingw32.static-gcc \
+    CXX=i686-w64-mingw32.static-g++ \
+    LINK=i686-w64-mingw32.static-g++ \
+    CROSS=1 \
+    -j$(nproc)
+
+RUN mkdir -p /output && \
+    cp src/wayawolfcoind.exe /output/
