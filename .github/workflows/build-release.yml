@@ -45,26 +45,20 @@ jobs:
       - name: Build Windows binaries
         if: matrix.os == 'windows-latest'
         run: |
-          choco install -y mingw qt5
-          $env:Path = "C:\tools\mingw64\bin;C:\Qt\5.15.2\mingw73_64\bin;$env:Path"
-          $env:PKG_CONFIG_PATH = "C:\Qt\5.15.2\mingw73_64\lib\pkgconfig"
+          choco install -y mingw msys2
+          refreshenv
+          cmd /c "C:\tools\msys64\msys2_shell.bat -defterm -here -no-hyper -mingw64 -shell bash -lc ""pacman -Syu --noconfirm && pacman -S --noconfirm mingw-w64-x86_64-qt5 mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-berkeley-db mingw-w64-x86_64-miniupnpc mingw-w64-x86_64-qrencode"""
           git clone --depth 1 https://github.com/Waya-Wolf/WWC3.git C:\wwc3
-          cd C:\wwc3
-          New-Item -ItemType Directory -Force -Path src\obj\crypto
-          cd src
-          mingw32-make -f makefile.unix USE_UPNP=1 STATIC=1
-          cd ..
-          C:\Qt\5.15.2\mingw73_64\bin\qmake.exe "RELEASE=1" wayawolfcoin.pro
-          mingw32-make
+          cmd /c "C:\tools\msys64\msys2_shell.bat -defterm -here -no-hyper -mingw64 -shell bash -lc ""cd /c/wwc3 && mkdir -p src/obj/crypto && cd src && make -f makefile.unix USE_UPNP=1 STATIC=1 && cd .. && /c/Qt/5.15.2/mingw73_64/bin/qmake.exe RELEASE=1 wayawolfcoin.pro && make"""
           mkdir windows
-          if (Test-Path "src\wayawolfcoind.exe") { Copy-Item "src\wayawolfcoind.exe" "windows\" }
-          if (Test-Path "Wayawolfcoin-qt.exe") { Copy-Item "Wayawolfcoin-qt.exe" "windows\" }
-          Compress-Archive -Path "windows\*" -DestinationPath "${{ matrix.artifact_name }}"
+          cp wwc3-source/src/wayawolfcoind.exe windows/ 2>/dev/null || cp wwc3-source/src/wayawolfcoind windows/wayawolfcoind.exe
+          cp wwc3-source/Wayawolfcoin-qt.exe windows/ 2>/dev/null || cp wwc3-source/Wayawolfcoin-qt windows/Wayawolfcoin-qt.exe
+          powershell -Command "Compress-Archive -Path 'windows\*' -DestinationPath '${{ matrix.artifact_name }}'"
 
       - name: Build macOS binaries
         if: matrix.os == 'macos-latest'
         run: |
-          brew install qt5 boost berkeley-db@4 miniupnpc qrencode
+          brew install qt5 boost berkeley-db miniupnpc qrencode
           cp -r wwc3-source/* .
           mkdir -p src/obj/crypto
           cd src && make -f makefile.unix USE_UPNP=1 STATIC=1
@@ -79,8 +73,9 @@ jobs:
 
       - name: Upload Release Asset
         run: |
+          CONTENT_TYPE="${{ matrix.os == 'windows-latest' && 'zip' || 'gzip' }}"
           curl -s -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/${{ matrix.os == 'windows-latest' && 'zip' || 'gzip' }}" \
+            -H "Content-Type: application/$CONTENT_TYPE" \
             --data-binary @${{ matrix.artifact_name }} \
             "${{ github.event.release.upload_url }}?name=${{ matrix.artifact_name }}"
