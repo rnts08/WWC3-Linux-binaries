@@ -30,6 +30,7 @@ jobs:
             mingw-w64-x86_64-miniupnpc
             mingw-w64-x86_64-qrencode
             mingw-w64-x86_64-db
+            mingw-w64-x86_64-make
 
       - name: Build daemon
         shell: msys2 {0}
