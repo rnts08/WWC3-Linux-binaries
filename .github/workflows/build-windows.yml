@@ -9,51 +9,32 @@ permissions:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
-      - name: Checkout source
+      - name: Checkout Dockerfiles
         uses: actions/checkout@v4
-        with:
-          repository: Waya-Wolf/WWC3
 
-      - name: Setup MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: mingw64
-          update: true
-          install: >-
-            mingw-w64-x86_64-qt5
-            mingw-w64-x86_64-boost
-            mingw-w64-x86_64-openssl
-            mingw-w64-x86_64-miniupnpc
-            mingw-w64-x86_64-qrencode
-            mingw-w64-x86_64-db
-            mingw-w64-x86_64-make
-
-      - name: Build daemon
+      - name: Clone WWC3 source
         run: |
-          $msys2Path = (Get-ChildItem Env:MSYS_ROOT -ErrorAction SilentlyContinue).Value
-          if (-not $msys2Path) { $msys2Path = "C:\msys64" }
-          $env:Path = "$msys2Path\mingw64\bin;$msys2Path\usr\bin;$env:Path"
-          New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\src\obj\crypto"
-          & "$msys2Path\mingw64\bin\mingw32-make.exe" -f "$env:GITHUB_WORKSPACE\src\makefile.unix" USE_UPNP=1 -j2 -C "$env:GITHUB_WORKSPACE\src"
+          git clone --depth 1 https://github.com/Waya-Wolf/WWC3.git wwc3-source
 
-      - name: Build Qt GUI
+      - name: Prepare build context
         run: |
-          $msys2Path = (Get-ChildItem Env:MSYS_ROOT -ErrorAction SilentlyContinue).Value
-          if (-not $msys2Path) { $msys2Path = "C:\msys64" }
-          $env:Path = "$msys2Path\mingw64\bin;$msys2Path\usr\bin;$env:Path"
-          & "$msys2Path\mingw64\bin\qmake.exe" "$env:GITHUB_WORKSPACE\wayawolfcoin.pro" RELEASE=1
-          & "$msys2Path\mingw64\bin\mingw32-make.exe" -j2 -C "$env:GITHUB_WORKSPACE"
+          cp Dockerfile.windows-cross wwc3-source/
 
-      - name: Package
+      - name: Build Windows binaries
         run: |
-          mkdir windows
-          Get-ChildItem -Path $env:GITHUB_WORKSPACE\src -Filter "wayawolfcoind*" | Move-Item -Destination windows/
-          Get-ChildItem -Path $env:GITHUB_WORKSPACE -Filter "Wayawolfcoin-qt*" | Move-Item -Destination windows/
-          Compress-Archive -Path "windows\*" -DestinationPath "WWC3-windows-x64.zip"
+          docker build -f wwc3-source/Dockerfile.windows-cross -t ww-qt-windows-cross wwc3-source/
+          docker run --rm ww-qt-windows-cross cat /build/src/wayawolfcoind.exe > wayawolfcoind.exe
+          docker run --rm ww-qt-windows-cross cat /build/Wayawolfcoin-qt.exe > Wayawolfcoin-qt.exe
+
+      - name: Create zip archive
+        run: |
+          mkdir -p windows
+          mv wayawolfcoind.exe Wayawolfcoin-qt.exe windows/
+          powershell -Command "Compress-Archive -Path 'windows\*' -DestinationPath 'WWC3-windows-x64.zip'"
 
       - name: Upload
         env:
