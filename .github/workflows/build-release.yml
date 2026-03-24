@@ -12,13 +12,10 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: WWC3-linux-x64.tar.gz
-            format: tar.gz
           - os: windows-latest
             artifact_name: WWC3-windows-x64.zip
-            format: zip
           - os: macos-latest
             artifact_name: WWC3-macosx-x64.tar.gz
-            format: tar.gz
 
     runs-on: ${{ matrix.os }}
 
@@ -82,11 +79,9 @@ jobs:
           tar -czvf ${{ matrix.artifact_name }} macosx/
 
       - name: Upload Release Asset
-        uses: softprops/upload-gh-release-asset@v1.0.0
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ${{ matrix.artifact_name }}
-          asset_name: ${{ matrix.artifact_name }}
-          asset_content_type: application/octet-stream
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/${{ matrix.os == 'windows-latest' && 'zip' || 'gzip' }}" \
+            --data-binary @${{ matrix.artifact_name }} \
+            "${{ github.event.release.upload_url }}?name=${{ matrix.artifact_name }}"
