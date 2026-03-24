@@ -1,0 +1,71 @@
+name: Build Windows
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          repository: Waya-Wolf/WWC3
+          path: src
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: mingw64
+          update: true
+          install: >-
+            mingw-w64-x86_64-qt5
+            mingw-w64-x86_64-boost
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-miniupnpc
+            mingw-w64-x86_64-qrencode
+
+      - name: Build BerkeleyDB
+        shell: msys2 {0}
+        run: |
+          cd /tmp
+          curl -sLO https://download.oracle.com/berkeley-db/db-4.8.30.tar.gz
+          tar xzf db-4.8.30.tar.gz
+          cd db-4.8.30/build_unix
+          ../distconfigure --prefix=/mingw64/mingw --disable-shared --enable-static
+          make -j$(nproc)
+          make install
+
+      - name: Build daemon (dynamic linking)
+        shell: msys2 {0}
+        run: |
+          cd /c/projects/src
+          mkdir -p src/obj/crypto
+          cd src
+          make -f makefile.unix USE_UPNP=1 -j$(nproc)
+
+      - name: Build Qt GUI (dynamic linking)
+        shell: msys2 {0}
+        run: |
+          cd /c/projects/src
+          export PATH="/c/msys64/mingw64/bin:$PATH"
+          qmake "RELEASE=1" wayawolfcoin.pro
+          make -j$(nproc)
+
+      - name: Package
+        run: |
+          mkdir windows
+          Get-ChildItem -Path src -Filter "wayawolfcoind*" | Move-Item -Destination windows/
+          Get-ChildItem -Path . -Filter "Wayawolfcoin-qt*" | Move-Item -Destination windows/
+          Compress-Archive -Path "windows\*" -DestinationPath "WWC3-windows-x64.zip"
+
+      - name: Upload
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} WWC3-windows-x64.zip
