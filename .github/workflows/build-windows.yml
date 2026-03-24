@@ -17,7 +17,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Waya-Wolf/WWC3
-          path: src
 
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
@@ -33,20 +32,19 @@ jobs:
             mingw-w64-x86_64-db
 
       - name: Build daemon
+        shell: msys2 {0}
         run: |
-          $env:Path = "C:\tools\msys64\mingw64\bin;C:\tools\msys64\usr\bin;$env:Path"
-          $env:MSYSTEM = "MINGW64"
-          Set-Location "$env:GITHUB_WORKSPACE\src"
-          New-Item -ItemType Directory -Force -Path obj\crypto
-          mingw32-make -f makefile.unix USE_UPNP=1 -j2
+          cd $GITHUB_WORKSPACE/src
+          mkdir -p obj/crypto
+          make -f makefile.unix USE_UPNP=1 -j2
 
       - name: Build Qt GUI
+        shell: msys2 {0}
         run: |
-          $env:Path = "C:\tools\msys64\mingw64\bin;C:\tools\msys64\usr\bin;$env:Path"
-          $env:MSYSTEM = "MINGW64"
-          Set-Location "$env:GITHUB_WORKSPACE"
-          C:\tools\msys64\mingw64\bin\qmake.exe RELEASE=1 wayawolfcoin.pro
-          mingw32-make -j2
+          cd $GITHUB_WORKSPACE
+          export PATH="/c/msys64/mingw64/bin:$PATH"
+          qmake "RELEASE=1" wayawolfcoin.pro
+          make -j2
 
       - name: Package
         run: |
