@@ -6,11 +6,12 @@ This document describes how to create releases for WWC3 (Waya Wolf Coin) binarie
 
 - GitHub CLI (`gh`) installed and authenticated
 - Push access to the repository
+- Docker (for local testing)
 
 ## Supported Platforms
 
 - **Linux** (x86_64) - Built using Docker with Ubuntu 16.04 base
-- **Windows** (x86_64) - Built using Docker cross-compilation with Ubuntu 16.04 + MinGW
+- **Windows** (x86_64) - Built using Docker cross-compilation with MXE (Boost 1.58)
 - **macOS** - Not yet implemented
 
 ## Creating a Release
@@ -23,6 +24,7 @@ The build workflows are defined in `.github/workflows/`:
 
 Both workflows automatically:
 - Clone source from `https://github.com/Waya-Wolf/WWC3.git`
+- Apply compatibility patches from `patches/`
 - Build binaries using Docker
 - Package and attach to the release
 
@@ -64,7 +66,48 @@ gh release view <tag>
 
 Releases include:
 - `WWC3-linux-x64.tar.gz` - Linux binaries (wayawolfcoind + Wayawolfcoin-qt)
-- `WWC3-windows-x64.zip` - Windows binaries (wayawolfcoind)
+- `WWC3-windows-x64.zip` - Windows binaries (wayawolfcoind.exe)
+
+## Local Build
+
+### Linux
+
+```bash
+git clone --depth 1 https://github.com/Waya-Wolf/WWC3.git wwc3-source
+cp Dockerfile.qt-static wwc3-source/
+docker build -f wwc3-source/Dockerfile.qt-static -t ww-qt-static wwc3-source/
+docker run --rm ww-qt-static cat /build/src/wayawolfcoind > wayawolfcoind
+docker run --rm ww-qt-static cat /build/Wayawolfcoin-qt > Wayawolfcoin-qt
+```
+
+### Windows
+
+```bash
+git clone --depth 1 https://github.com/Waya-Wolf/WWC3.git wwc3-source
+cp Dockerfile.windows-mxe wwc3-source/
+cp patches/boost-compat.patch wwc3-source/
+docker build -f wwc3-source/Dockerfile.windows-mxe -t ww-windows-mxe wwc3-source/
+docker run --rm ww-windows-mxe cat /output/wayawolfcoind.exe > wayawolfcoind.exe
+```
+
+## Compatibility Patches
+
+The WWC3 codebase uses deprecated Boost/ASIO APIs. Patches are stored in `patches/`:
+
+- `boost-compat.patch` - Fixes compatibility with newer Boost (1.66+) and OpenSSL (1.1+)
+
+### Changes in boost-compat.patch
+
+1. **Boost.Asio io_service → io_context**:
+   - `get_io_service()` → `get_executor()` for Boost 1.66+
+   - Added template overloads for AcceptedConnectionImpl
+
+2. **OpenSSL API updates**:
+   - `ssl::context` constructor change (removed io_service parameter)
+   - `ssl::context::impl()` → `ssl::context::native_handle()`
+
+3. **Boost version checks**:
+   - Uses `#if BOOST_VERSION >= 106600` to conditionally compile
 
 ## Workflow Details
 
@@ -74,9 +117,9 @@ Releases include:
 - Static linking for OpenSSL, Boost, BDB, miniupnpc
 
 ### Windows Build  
-- Uses `Dockerfile.windows-cross` (Ubuntu 16.04 + MinGW cross-compilation)
+- Uses `Dockerfile.windows-mxe` (MXE with Boost 1.58)
 - Builds daemon only (wayawolfcoind.exe)
-- OpenSSL 1.0.2g compatible with WWC3 codebase
+- Applies `patches/boost-compat.patch` for compatibility
 
 ## Troubleshooting
 

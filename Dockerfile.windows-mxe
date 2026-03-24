@@ -11,14 +11,27 @@ COPY . .
 
 RUN sed -i 's/^#  Windows begin/win32 {\n#  Windows begin/; s/^#  Windows end/#  Windows end\n}/' wayawolfcoin.pro || true
 
+COPY patches/boost-compat.patch /tmp/
+RUN patch -p1 < /tmp/boost-compat.patch || true
+
 RUN mkdir -p src/obj/crypto
+
+RUN cd src/leveldb && \
+    TARGET_OS=OS_WINNT make CC=i686-w64-mingw32.static-gcc CXX=i686-w64-mingw32.static-g++ libleveldb.a libmemenv.a
 
 RUN cd src && \
     make -f makefile.unix \
     USE_UPNP=1 \
+    LIBS="-l boost_system-mt-x32 -l boost_filesystem-mt-x32 -l boost_program_options-mt-x32 -l boost_thread-mt-x32 -l db_cxx-5.3 -l ssl -l crypto -l miniupnpc -l z" \
     CC=i686-w64-mingw32.static-gcc \
     CXX=i686-w64-mingw32.static-g++ \
     LINK=i686-w64-mingw32.static-g++ \
+    LDFLAGS="-static -L/build/mxe/usr/i686-w64-mingw32.static/lib" \
+    LDHARDENING="" \
+    BOOST_LIB_SUFFIX=-mt-x32 \
+    BOOST_THREAD_LIB_SUFFIX=-mt-x32 \
+    BDB_LIB_SUFFIX=-5.3 \
+    BOOST_LIB_PATH=/build/mxe/usr/i686-w64-mingw32.static/lib \
     CROSS=1 \
     -j$(nproc)
 
