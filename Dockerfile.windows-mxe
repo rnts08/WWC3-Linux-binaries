@@ -1,7 +1,6 @@
 # Waya Wolf Coin - Windows Cross-Compilation using MXE
 # ====================================================
 # Uses pre-built MXE environment with all dependencies
-# Builds daemon only (no Qt GUI - has boost compatibility issues)
 
 FROM sskender/altcoin-mxe:latest
 
@@ -11,8 +10,22 @@ COPY . .
 
 RUN sed -i 's/^#  Windows begin/win32 {\n#  Windows begin/; s/^#  Windows end/#  Windows end\n}/' wayawolfcoin.pro || true
 
-COPY patches/boost-compat.patch /tmp/
-RUN patch -p1 < /tmp/boost-compat.patch || true
+# Fix rpcprotocol.h - get_executor instead of get_io_service
+RUN sed -i 's/stream.get_io_service()/stream.get_executor()/' src/rpcprotocol.h
+
+# Fix rpcclient.cpp - ssl::context constructor
+RUN sed -i 's/ssl::context context(io_service, ssl::context::sslv23)/ssl::context context(ssl::context::sslv23)/' src/rpcclient.cpp
+
+# Fix rpcserver.cpp - multiple changes  
+RUN sed -i 's/acceptor->get_io_service()/acceptor->get_executor()/' src/rpcserver.cpp
+RUN sed -i 's/rpc_ssl_context = new ssl::context(\*rpc_io_service, ssl::context::sslv23)/rpc_ssl_context = new ssl::context(ssl::context::sslv23)/' src/rpcserver.cpp
+RUN sed -i 's/rpc_ssl_context->impl()/rpc_ssl_context->native_handle()/' src/rpcserver.cpp
+
+# Fix main.cpp - add using namespace for boost placeholders
+RUN sed -i '/#include <boost\/filesystem\/fstream.hpp>/a #include <boost/bind.hpp>\nusing namespace boost::placeholders;' src/main.cpp
+
+# Fix rpcwallet.cpp - localtime_s for Windows  
+RUN sed -i 's/localtime_r(\&CurTime, \&Loc_MidNight)/localtime_s(\&Loc_MidNight, \&CurTime)/' src/rpcwallet.cpp
 
 RUN mkdir -p src/obj/crypto
 
@@ -32,6 +45,7 @@ RUN cd src && \
     BOOST_THREAD_LIB_SUFFIX=-mt-x32 \
     BDB_LIB_SUFFIX=-5.3 \
     BOOST_LIB_PATH=/build/mxe/usr/i686-w64-mingw32.static/lib \
+    CXXFLAGS="-DBOOST_BIND_GLOBAL_PLACEHOLDERS" \
     CROSS=1 \
     -j$(nproc)
 
