@@ -33,12 +33,19 @@ jobs:
             mingw-w64-x86_64-db
 
       - name: Build daemon
+        shell: bash
         run: |
-          C:\tools\msys64\msys2_shell.bat -defterm -here -no-hyper -mingw64 -shell bash -lc "cd $GITHUB_WORKSPACE/src && mkdir -p obj/crypto && make -f makefile.unix USE_UPNP=1 -j2"
+          cd "$GITHUB_WORKSPACE/src"
+          mkdir -p obj/crypto
+          make -f makefile.unix USE_UPNP=1 -j2
 
       - name: Build Qt GUI
+        shell: bash
         run: |
-          C:\tools\msys64\msys2_shell.bat -defterm -here -no-hyper -mingw64 -shell bash -lc "cd $GITHUB_WORKSPACE && export PATH='/c/msys64/mingw64/bin:$PATH' && qmake 'RELEASE=1' wayawolfcoin.pro && make -j2"
+          cd "$GITHUB_WORKSPACE"
+          export PATH="/c/msys64/mingw64/bin:$PATH"
+          qmake "RELEASE=1" wayawolfcoin.pro
+          make -j2
 
       - name: Package
         run: |
