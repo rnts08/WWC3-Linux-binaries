@@ -27,17 +27,20 @@ jobs:
       - name: Build Windows binaries
         run: |
           docker build -f wwc3-source/Dockerfile.windows-cross -t ww-qt-windows-cross wwc3-source/
-          docker run --rm ww-qt-windows-cross cat /build/src/wayawolfcoind.exe > wayawolfcoind.exe
-          docker run --rm ww-qt-windows-cross cat /build/Wayawolfcoin-qt.exe > Wayawolfcoin-qt.exe
+          docker run --rm ww-qt-windows-cross cat /build/src/wayawolfcoind.exe > wayawolfcoind.exe || true
 
-      - name: Create zip archive
+      - name: Create archive
         run: |
           mkdir -p windows
-          mv wayawolfcoind.exe Wayawolfcoin-qt.exe windows/
-          powershell -Command "Compress-Archive -Path 'windows\*' -DestinationPath 'WWC3-windows-x64.zip'"
+          if [ -f "wayawolfcoind.exe" ]; then
+            mv wayawolfcoind.exe windows/
+            tar -czvf WWC3-windows-x64.tar.gz windows/
+          fi
 
       - name: Upload
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          gh release upload ${{ github.event.release.tag_name }} WWC3-windows-x64.zip
+          if [ -f "WWC3-windows-x64.tar.gz" ]; then
+            gh release upload ${{ github.event.release.tag_name }} WWC3-windows-x64.tar.gz
+          fi
