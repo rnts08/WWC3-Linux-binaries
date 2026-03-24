@@ -1,6 +1,6 @@
 # Linux binaries for WWC3 https://github.com/Waya-Wolf/WWC3.git and how to build them on a modern system.
 
-Binaries for x86_84 is in the bin/ folder. Use the statically linked Wayawolfcoin3-qt binary for modern
+Binaries for x86_84 are located in the build/ folder. Use the statically linked Wayawolfcoin3-qt binary for modern
 systems since it is statically built with older libraries directly embedded. 
 
 ## Support me
