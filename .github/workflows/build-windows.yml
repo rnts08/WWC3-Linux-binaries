@@ -34,12 +34,19 @@ jobs:
 
       - name: Build daemon
         run: |
-          & "C:\tools\msys64\mingw64\bin\mingw32-make.exe" -f "$env:GITHUB_WORKSPACE\src\makefile.unix" USE_UPNP=1 -j2 -C "$env:GITHUB_WORKSPACE\src"
+          $msys2Path = (Get-ChildItem Env:MSYS_ROOT -ErrorAction SilentlyContinue).Value
+          if (-not $msys2Path) { $msys2Path = "C:\msys64" }
+          $env:Path = "$msys2Path\mingw64\bin;$msys2Path\usr\bin;$env:Path"
+          New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\src\obj\crypto"
+          & "$msys2Path\mingw64\bin\mingw32-make.exe" -f "$env:GITHUB_WORKSPACE\src\makefile.unix" USE_UPNP=1 -j2 -C "$env:GITHUB_WORKSPACE\src"
 
       - name: Build Qt GUI
         run: |
-          & "C:\tools\msys64\mingw64\bin\qmake.exe" "$env:GITHUB_WORKSPACE\wayawolfcoin.pro" RELEASE=1
-          & "C:\tools\msys64\mingw64\bin\mingw32-make.exe" -j2 -C "$env:GITHUB_WORKSPACE"
+          $msys2Path = (Get-ChildItem Env:MSYS_ROOT -ErrorAction SilentlyContinue).Value
+          if (-not $msys2Path) { $msys2Path = "C:\msys64" }
+          $env:Path = "$msys2Path\mingw64\bin;$msys2Path\usr\bin;$env:Path"
+          & "$msys2Path\mingw64\bin\qmake.exe" "$env:GITHUB_WORKSPACE\wayawolfcoin.pro" RELEASE=1
+          & "$msys2Path\mingw64\bin\mingw32-make.exe" -j2 -C "$env:GITHUB_WORKSPACE"
 
       - name: Package
         run: |
