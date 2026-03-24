@@ -82,7 +82,7 @@ jobs:
           tar -czvf ${{ matrix.artifact_name }} macosx/
 
       - name: Upload Release Asset
-        uses: softprops/upload-gh-release-asset@v1
+        uses: softprops/upload-gh-release-asset@v1.0.0
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ${{ matrix.artifact_name }}
