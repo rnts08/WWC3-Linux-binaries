@@ -10,6 +10,7 @@ permissions:
 jobs:
   build-windows:
     runs-on: windows-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout source
@@ -31,31 +32,17 @@ jobs:
             mingw-w64-x86_64-qrencode
 
       - name: Build BerkeleyDB
-        shell: msys2 {0}
         run: |
-          cd /tmp
-          curl -sLO https://download.oracle.com/berkeley-db/db-4.8.30.tar.gz
-          tar xzf db-4.8.30.tar.gz
-          cd db-4.8.30/build_unix
-          ../dist/configure --prefix=/mingw64/mingw --disable-shared --enable-static
-          make -j$(nproc)
-          make install
+          # Use PowerShell to run MSYS2 with proper environment
+          C:\tools\msys64\msys2_shell.bat -defterm -here -no-hyper -mingw64 -shell bash -lc "cd /tmp && curl -sLO https://download.oracle.com/berkeley-db/db-4.8.30.tar.gz && tar xzf db-4.8.30.tar.gz && cd db-4.8.30/build_unix && ../dist/configure --prefix=/mingw64/mingw --disable-shared --enable-static && make -j2 && make install"
 
-      - name: Build daemon (dynamic linking)
-        shell: msys2 {0}
+      - name: Build daemon
         run: |
-          cd /c/projects/src
-          mkdir -p src/obj/crypto
-          cd src
-          make -f makefile.unix USE_UPNP=1 -j$(nproc)
+          C:\tools\msys64\msys2_shell.bat -defterm -here -no-hyper -mingw64 -shell bash -lc "cd /c/projects/src && mkdir -p src/obj/crypto && cd src && make -f makefile.unix USE_UPNP=1 -j2"
 
-      - name: Build Qt GUI (dynamic linking)
-        shell: msys2 {0}
+      - name: Build Qt GUI
         run: |
-          cd /c/projects/src
-          export PATH="/c/msys64/mingw64/bin:$PATH"
-          qmake "RELEASE=1" wayawolfcoin.pro
-          make -j$(nproc)
+          C:\tools\msys64\msys2_shell.bat -defterm -here -no-hyper -mingw64 -shell bash -lc "cd /c/projects/src && /c/msys64/mingw64/bin/qmake.exe RELEASE=1 wayawolfcoin.pro && make -j2"
 
       - name: Package
         run: |
