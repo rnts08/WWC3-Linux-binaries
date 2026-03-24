@@ -37,7 +37,7 @@ jobs:
           curl -sLO https://download.oracle.com/berkeley-db/db-4.8.30.tar.gz
           tar xzf db-4.8.30.tar.gz
           cd db-4.8.30/build_unix
-          ../distconfigure --prefix=/mingw64/mingw --disable-shared --enable-static
+          ../dist/configure --prefix=/mingw64/mingw --disable-shared --enable-static
           make -j$(nproc)
           make install
 
