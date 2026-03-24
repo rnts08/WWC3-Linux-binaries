@@ -30,7 +30,6 @@ jobs:
       - name: Prepare build context
         run: |
           cp Dockerfile.qt-static wwc3-source/
-          cp -r . wwc3-source/
 
       - name: Build Linux binaries
         if: matrix.os == 'ubuntu-latest'
