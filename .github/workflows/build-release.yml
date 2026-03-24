@@ -31,8 +31,7 @@ jobs:
           tar -czvf WWC3-linux-x64.tar.gz linux/
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v2
-        with:
-          files: WWC3-linux-x64.tar.gz
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} WWC3-linux-x64.tar.gz
