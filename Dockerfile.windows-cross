@@ -1,39 +1,9 @@
 # Waya Wolf Coin - Windows Cross-Compilation
 # ===========================================
-# Uses MinGW-w64 for Windows cross-compilation on Linux
+# Uses a pre-built MXE Docker image for Windows cross-compilation
 # Outputs: /build/src/wayawolfcoind.exe, /build/Wayawolfcoin-qt.exe
-#
-# Build command: docker build -f Dockerfile.windows-cross -t ww-qt-windows-cross .
-# Extract binaries:
-#   docker run --rm ww-qt-windows-cross cat /build/src/wayawolfcoind.exe > wayawolfcoind.exe
-#   docker run --rm ww-qt-windows-cross cat /build/Wayawolfcoin-qt.exe > Wayawolfcoin-qt.exe
 
-FROM ubuntu:22.04
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install MinGW-w64 and build dependencies for cross-compilation
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    git \
-    wget \
-    mingw-w64 \
-    libssl-dev \
-    mingw-w64-i686-libssl-dev \
-    mingw-w64-x86-64-libdb++-dev \
-    mingw-w64-i686-libdb++-dev \
-    mingw-w64-x86_64-libboost-all-dev \
-    mingw-w64-i686-libboost-all-dev \
-    mingw-w64-x86_64-qtbase5-dev \
-    mingw-w64-i686-qtbase5-dev \
-    mingw-w64-x86_64-qttools5-dev \
-    mingw-w64-i686-qttools5-dev \
-    mingw-w64-x86_64-qttranslations5 \
-    mingw-w64-x86_64-libminiupnpc-dev \
-    mingw-w64-x86_64-libqrencode-dev \
-    pkg-config \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+FROM mxe/mxe:latest
 
 WORKDIR /build
 
@@ -47,7 +17,7 @@ RUN sed -i 's/^#  Windows begin/win32 {\n#  Windows begin/; s/^#  Windows end/# 
 RUN mkdir -p src/obj/crypto
 
 # Build the daemon for Windows (x86_64)
-RUN cd src && make -f makefile.unix USE_UPNP=1 STATIC=1 CROSS=x86_64-w64-mingw32-
+RUN cd src && make -f makefile.unix USE_UPNP=1 CROSS=x86_64-w64-mingw32-
 
 # Build Qt GUI for Windows (x86_64)
-RUN qmake "RELEASE=1" wayawolfcoin.pro CROSS=x86_64-w64-mingw32- && make
+RUN /usr/lib/mxe/qt5/bin/qmake "RELEASE=1" wayawolfcoin.pro && make
