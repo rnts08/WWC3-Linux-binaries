@@ -33,19 +33,13 @@ jobs:
             mingw-w64-x86_64-make
 
       - name: Build daemon
-        shell: msys2 {0}
         run: |
-          cd $GITHUB_WORKSPACE/src
-          mkdir -p obj/crypto
-          make -f makefile.unix USE_UPNP=1 -j2
+          & "C:\tools\msys64\mingw64\bin\mingw32-make.exe" -f "$env:GITHUB_WORKSPACE\src\makefile.unix" USE_UPNP=1 -j2 -C "$env:GITHUB_WORKSPACE\src"
 
       - name: Build Qt GUI
-        shell: msys2 {0}
         run: |
-          cd $GITHUB_WORKSPACE
-          export PATH="/c/msys64/mingw64/bin:$PATH"
-          qmake "RELEASE=1" wayawolfcoin.pro
-          make -j2
+          & "C:\tools\msys64\mingw64\bin\qmake.exe" "$env:GITHUB_WORKSPACE\wayawolfcoin.pro" RELEASE=1
+          & "C:\tools\msys64\mingw64\bin\mingw32-make.exe" -j2 -C "$env:GITHUB_WORKSPACE"
 
       - name: Package
         run: |
