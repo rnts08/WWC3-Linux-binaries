@@ -1,0 +1,39 @@
+# Waya Wolf Coin - Dynamic Daemon Build
+# =====================================
+# Base: Ubuntu 16.04 (required for OpenSSL 1.0 compatibility)
+# This builds only the headless daemon (wayawolfcoind) with dynamic linking
+# Output: /build/src/wayawolfcoind
+#
+# Build command: docker build -f Dockerfile.normal -t ww-daemon .
+# Extract binary: docker run --rm ww-daemon cat /build/src/wayawolfcoind > wayawolfcoind
+
+FROM ubuntu:16.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libssl-dev \
+    libdb++-dev \
+    libboost-all-dev \
+    libqrencode-dev \
+    libminiupnpc-dev \
+    git \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Copy source code
+COPY . .
+
+# Create required directory for crypto object files
+RUN mkdir -p src/obj/crypto
+
+# Build the daemon (dynamic linking - default)
+# USE_UPNP=1 enables UPnP port mapping support
+RUN cd src && make -f makefile.unix USE_UPNP=1
+
+# Output: /build/src/wayawolfcoind
+# Runtime needs: libssl1.0, libcrypto, libdb_cxx, libboost-*, libminiupnpc
