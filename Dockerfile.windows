@@ -1,0 +1,65 @@
+# Waya Wolf Coin - Windows Build (Static Linking)
+# ===============================================
+# Base: Ubuntu 16.04 (required for OpenSSL 1.0 compatibility)
+# This builds both wayawolfcoind and Wayawolfcoin-qt for Windows
+# Uses mingw-w64 for cross-compilation from Linux
+# Outputs: /build/src/wayawolfcoind.exe, /build/Wayawolfcoin-qt.exe
+#
+# Build command: docker build -f Dockerfile.windows -t ww-qt-windows .
+# Extract binaries:
+#   docker run --rm ww-qt-windows cat /build/src/wayawolfcoind.exe > wayawolfcoind.exe
+#   docker run --rm ww-qt-windows cat /build/Wayawolfcoin-qt.exe > Wayawolfcoin-qt.exe
+
+FROM ubuntu:16.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies including MinGW-w64 for Windows cross-compilation
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    mingw-w64 \
+    libssl-dev \
+    libdb++-dev \
+    libboost-all-dev \
+    libqrencode-dev \
+    libminiupnpc-dev \
+    qt5-default \
+    qtbase5-dev \
+    qtbase5-dev-tools \
+    qttools5-dev-tools \
+    libqt5opengl5-dev \
+    wine \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Qt5 for Windows (via MXE)
+RUN cd /opt && \
+    wget -q https://github.com/mxe/mxe/releases/download/v2023-10-23/mxe-shared.tar.xz -O mxe.tar.xz || true
+RUN if [ -f /opt/mxe.tar.xz ]; then \
+    tar xf /opt/mxe.tar.xz -C /opt && \
+    rm /opt/mxe.tar.xz; \
+    fi
+
+ENV PATH="/opt/mxe/usr/bin:$PATH"
+ENV CC=x86_64-w64-mingw32.shared-gcc
+ENV CXX=x86_64-w64-mingw32.shared-g++
+ENV PKG_CONFIG_PATH="/opt/mxe/usr/x86_64-w64-mingw32.shared/lib/pkgconfig"
+
+WORKDIR /build
+
+# Copy source code
+COPY . .
+
+# Fix .pro file for Windows (the original already has Windows paths)
+RUN sed -i 's/^#  Windows begin/win32 {\n#  Windows begin/; s/^#  Windows end/#  Windows end\n}/' wayawolfcoin.pro || true
+
+# Create required directory for crypto object files
+RUN mkdir -p src/obj/crypto
+
+# Build the daemon for Windows
+RUN cd src && make -f makefile.unix USE_UPNP=1 STATIC=1 CROSS=i686-w64-mingw32-
+
+# Build Qt GUI for Windows
+RUN qmake "RELEASE=1" wayawolfcoin.pro && make
