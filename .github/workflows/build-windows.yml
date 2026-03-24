@@ -30,19 +30,23 @@ jobs:
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-miniupnpc
             mingw-w64-x86_64-qrencode
-
-      - name: Build BerkeleyDB
-        run: |
-          # Use PowerShell to run MSYS2 with proper environment
-          C:\tools\msys64\msys2_shell.bat -defterm -here -no-hyper -mingw64 -shell bash -lc "cd /tmp && curl -sLO https://download.oracle.com/berkeley-db/db-4.8.30.tar.gz && tar xzf db-4.8.30.tar.gz && cd db-4.8.30/build_unix && ../dist/configure --prefix=/mingw64/mingw --disable-shared --enable-static && make -j2 && make install"
+            mingw-w64-x86_64-db
 
       - name: Build daemon
+        shell: msys2 {0}
         run: |
-          C:\tools\msys64\msys2_shell.bat -defterm -here -no-hyper -mingw64 -shell bash -lc "cd /c/projects/src && mkdir -p src/obj/crypto && cd src && make -f makefile.unix USE_UPNP=1 -j2"
+          cd /c/projects/src
+          mkdir -p src/obj/crypto
+          cd src
+          make -f makefile.unix USE_UPNP=1 -j2
 
       - name: Build Qt GUI
+        shell: msys2 {0}
         run: |
-          C:\tools\msys64\msys2_shell.bat -defterm -here -no-hyper -mingw64 -shell bash -lc "cd /c/projects/src && /c/msys64/mingw64/bin/qmake.exe RELEASE=1 wayawolfcoin.pro && make -j2"
+          cd /c/projects/src
+          export PATH="/c/msys64/mingw64/bin:$PATH"
+          qmake "RELEASE=1" wayawolfcoin.pro
+          make -j2
 
       - name: Package
         run: |
