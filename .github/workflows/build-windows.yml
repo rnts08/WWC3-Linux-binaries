@@ -27,7 +27,7 @@ jobs:
       - name: Build Windows binaries
         run: |
           docker build -f wwc3-source/Dockerfile.windows-cross -t ww-qt-windows-cross wwc3-source/
-          docker run --rm ww-qt-windows-cross cat /build/src/wayawolfcoind.exe > wayawolfcoind.exe || true
+          docker run --rm ww-qt-windows-cross cat /build/src/wayawolfcoind > wayawolfcoind.exe
 
       - name: Create archive
         run: |
