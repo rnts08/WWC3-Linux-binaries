@@ -31,9 +31,11 @@ jobs:
           tar -czvf WWC3-linux-x64.tar.gz linux/
 
       - name: Upload Release Asset
-        run: |
-          curl -s -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/gzip" \
-            --data-binary @WWC3-linux-x64.tar.gz \
-            "${{ github.event.release.upload_url }}?name=WWC3-linux-x64.tar.gz"
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: WWC3-linux-x64.tar.gz
+          asset_name: WWC3-linux-x64.tar.gz
+          asset_content_type: application/gzip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
