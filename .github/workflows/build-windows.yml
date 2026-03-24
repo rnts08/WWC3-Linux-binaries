@@ -33,25 +33,18 @@ jobs:
             mingw-w64-x86_64-db
 
       - name: Build daemon
-        shell: msys2 {0}
         run: |
-          cd $GITHUB_WORKSPACE/src
-          mkdir -p obj/crypto
-          make -f makefile.unix USE_UPNP=1 -j2
+          C:\tools\msys64\msys2_shell.bat -defterm -here -no-hyper -mingw64 -shell bash -lc "cd $GITHUB_WORKSPACE/src && mkdir -p obj/crypto && make -f makefile.unix USE_UPNP=1 -j2"
 
       - name: Build Qt GUI
-        shell: msys2 {0}
         run: |
-          cd $GITHUB_WORKSPACE
-          export PATH="/c/msys64/mingw64/bin:$PATH"
-          qmake "RELEASE=1" wayawolfcoin.pro
-          make -j2
+          C:\tools\msys64\msys2_shell.bat -defterm -here -no-hyper -mingw64 -shell bash -lc "cd $GITHUB_WORKSPACE && export PATH='/c/msys64/mingw64/bin:$PATH' && qmake 'RELEASE=1' wayawolfcoin.pro && make -j2"
 
       - name: Package
         run: |
           mkdir windows
-          Get-ChildItem -Path $GITHUB_WORKSPACE/src -Filter "wayawolfcoind*" | Move-Item -Destination windows/
-          Get-ChildItem -Path $GITHUB_WORKSPACE -Filter "Wayawolfcoin-qt*" | Move-Item -Destination windows/
+          Get-ChildItem -Path $env:GITHUB_WORKSPACE\src -Filter "wayawolfcoind*" | Move-Item -Destination windows/
+          Get-ChildItem -Path $env:GITHUB_WORKSPACE -Filter "Wayawolfcoin-qt*" | Move-Item -Destination windows/
           Compress-Archive -Path "windows\*" -DestinationPath "WWC3-windows-x64.zip"
 
       - name: Upload
