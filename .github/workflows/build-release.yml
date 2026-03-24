@@ -1,0 +1,92 @@
+name: Build and Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: WWC3-linux-x64.tar.gz
+            format: tar.gz
+          - os: windows-latest
+            artifact_name: WWC3-windows-x64.zip
+            format: zip
+          - os: macos-latest
+            artifact_name: WWC3-macosx-x64.tar.gz
+            format: tar.gz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout Dockerfiles
+        uses: actions/checkout@v4
+
+      - name: Clone WWC3 source
+        run: |
+          git clone --depth 1 https://github.com/Waya-Wolf/WWC3.git wwc3-source
+
+      - name: Prepare build context
+        run: |
+          cp Dockerfile.qt-static wwc3-source/
+          cp -r . wwc3-source/
+
+      - name: Build Linux binaries
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          docker build -f wwc3-source/Dockerfile.qt-static -t ww-qt-static wwc3-source/
+          docker run --rm ww-qt-static cat /build/src/wayawolfcoind > wayawolfcoind
+          docker run --rm ww-qt-static cat /build/Wayawolfcoin-qt > Wayawolfcoin-qt
+          chmod +x wayawolfcoind Wayawolfcoin-qt
+          mkdir -p linux
+          mv wayawolfcoind Wayawolfcoin-qt linux/
+          tar -czvf ${{ matrix.artifact_name }} linux/
+
+      - name: Build Windows binaries
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install -y mingw qt5
+          $env:Path = "C:\tools\mingw64\bin;C:\Qt\5.15.2\mingw73_64\bin;$env:Path"
+          $env:PKG_CONFIG_PATH = "C:\Qt\5.15.2\mingw73_64\lib\pkgconfig"
+          git clone --depth 1 https://github.com/Waya-Wolf/WWC3.git C:\wwc3
+          cd C:\wwc3
+          New-Item -ItemType Directory -Force -Path src\obj\crypto
+          cd src
+          mingw32-make -f makefile.unix USE_UPNP=1 STATIC=1
+          cd ..
+          C:\Qt\5.15.2\mingw73_64\bin\qmake.exe "RELEASE=1" wayawolfcoin.pro
+          mingw32-make
+          mkdir windows
+          if (Test-Path "src\wayawolfcoind.exe") { Copy-Item "src\wayawolfcoind.exe" "windows\" }
+          if (Test-Path "Wayawolfcoin-qt.exe") { Copy-Item "Wayawolfcoin-qt.exe" "windows\" }
+          Compress-Archive -Path "windows\*" -DestinationPath "${{ matrix.artifact_name }}"
+
+      - name: Build macOS binaries
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install qt5 boost berkeley-db@4 miniupnpc qrencode
+          cp -r wwc3-source/* .
+          mkdir -p src/obj/crypto
+          cd src && make -f makefile.unix USE_UPNP=1 STATIC=1
+          cd ..
+          export PATH="/usr/local/opt/qt/bin:$PATH"
+          export PKG_CONFIG_PATH="/usr/local/opt/qt/lib/pkgconfig"
+          qmake "RELEASE=1" wayawolfcoin.pro && make
+          mkdir -p macosx
+          cp src/wayawolfcoind macosx/
+          cp Wayawolfcoin-qt macosx/
+          tar -czvf ${{ matrix.artifact_name }} macosx/
+
+      - name: Upload Release Asset
+        uses: softprops/upload-gh-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ${{ matrix.artifact_name }}
+          asset_name: ${{ matrix.artifact_name }}
+          asset_content_type: application/octet-stream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
