@@ -40,6 +40,7 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout Dockerfiles
         uses: actions/checkout@v4
@@ -52,6 +53,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: mingw64
+          update: true
           install: >-
             mingw-w64-x86_64-qt5
             mingw-w64-x86_64-boost
@@ -66,10 +68,10 @@ jobs:
           cd /c/wwc3
           mkdir -p src/obj/crypto
           cd src
-          make -f makefile.unix USE_UPNP=1 STATIC=1
+          make -f makefile.unix USE_UPNP=1 STATIC=1 -j2
           cd ..
-          qmake "RELEASE=1" wayawolfcoin.pro
-          make
+          /c/msys64/mingw64/bin/qmake.exe "RELEASE=1" wayawolfcoin.pro
+          make -j2
           mkdir -p ../windows
           cp src/wayawolfcoind.exe ../windows/ 2>/dev/null || cp src/wayawolfcoind ../windows/wayawolfcoind.exe
           cp Wayawolfcoin-qt.exe ../windows/ 2>/dev/null || cp Wayawolfcoin-qt ../windows/Wayawolfcoin-qt.exe
@@ -86,6 +88,7 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout Dockerfiles
         uses: actions/checkout@v4
@@ -102,13 +105,15 @@ jobs:
         run: |
           cd ~/wwc3
           mkdir -p src/obj/crypto
-          cd src
-          make -f makefile.unix USE_UPNP=1 STATIC=1
-          cd ..
           export PATH="/usr/local/opt/qt/bin:$PATH"
           export PKG_CONFIG_PATH="/usr/local/opt/qt/lib/pkgconfig"
-          qmake "RELEASE=1" wayawolfcoin.pro
-          make
+          export BOOST_INCLUDE="/usr/local/opt/boost/include"
+          export BOOST_LIB="/usr/local/opt/boost/lib"
+          cd src
+          make -f makefile.unix USE_UPNP=1 STATIC=1 -j2 INCLUDEPATH+="/usr/local/opt/boost/include" LIBPATH+="/usr/local/opt/boost/lib"
+          cd ..
+          qmake "RELEASE=1" wayawolfcoin.pro INCLUDEPATH+="/usr/local/opt/boost/include" LIBPATH+="/usr/local/opt/boost/lib"
+          make -j2
           mkdir -p ../macosx
           cp src/wayawolfcoind ../macosx/
           cp Wayawolfcoin-qt ../macosx/
