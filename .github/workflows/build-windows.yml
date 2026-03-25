@@ -1,5 +1,8 @@
 name: Build Windows
 
+# DISABLED: Requires manual build due to complex Docker setup
+# To enable: remove 'if: false' below and ensure Dockerfiles are in wwc3-source
+
 on:
   release:
     types: [published]
@@ -9,6 +12,7 @@ permissions:
 
 jobs:
   build-windows:
+    if: false  # Disabled - manual build required
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
