@@ -1,0 +1,98 @@
+# Waya Wolf Coin - Windows QT GUI Cross-Compilation using MXE
+# ============================================================
+# Uses pre-built MXE environment with all dependencies including Qt5
+
+FROM sskender/altcoin-mxe:latest
+
+WORKDIR /build
+
+COPY . .
+
+RUN if [ -d wwc3-source ]; then cp -r wwc3-source/. . && rm -rf wwc3-source; fi
+
+RUN sed -i 's/^#  Windows begin/win32 {\n#  Windows begin/; s/^#  Windows end/#  Windows end\n}/' wayawolfcoin.pro || true
+
+# Fix rpcprotocol.h - get_executor instead of get_io_service
+RUN sed -i 's/stream.get_io_service()/stream.get_executor()/' src/rpcprotocol.h
+
+# Fix rpcclient.cpp - ssl::context constructor
+RUN sed -i 's/ssl::context context(io_service, ssl::context::sslv23)/ssl::context context(ssl::context::sslv23)/' src/rpcclient.cpp
+
+# Fix rpcserver.cpp - ssl::context constructor and io_service changes
+RUN sed -i 's/rpc_ssl_context = new ssl::context(\*rpc_io_service, ssl::context::sslv23)/rpc_ssl_context = new ssl::context(ssl::context::sslv23)/' src/rpcserver.cpp
+RUN sed -i 's/rpc_ssl_context->impl()/rpc_ssl_context->native_handle()/' src/rpcserver.cpp
+RUN sed -i 's/static void RPCListen(boost::shared_ptr< basic_socket_acceptor<Protocol, SocketAcceptorService> > acceptor,/static void RPCListen(boost::asio::io_service\& io_service, boost::shared_ptr< basic_socket_acceptor<Protocol, SocketAcceptorService> > acceptor,/' src/rpcserver.cpp
+RUN sed -i 's/AcceptedConnectionImpl<Protocol>\* conn = new AcceptedConnectionImpl<Protocol>(acceptor->get_io_service(), context, fUseSSL)/AcceptedConnectionImpl<Protocol>* conn = new AcceptedConnectionImpl<Protocol>(io_service, context, fUseSSL)/' src/rpcserver.cpp
+RUN sed -i 's/RPCListen(acceptor, \*rpc_ssl_context, fUseSSL)/RPCListen(*rpc_io_service, acceptor, *rpc_ssl_context, fUseSSL)/g' src/rpcserver.cpp
+RUN sed -i 's/RPCListen(acceptor, context, fUseSSL)/RPCListen(*rpc_io_service, acceptor, context, fUseSSL)/g' src/rpcserver.cpp
+
+# Fix main.cpp - add using namespace for boost placeholders
+RUN sed -i '/#include <boost\/filesystem\/fstream.hpp>/a #include <boost/bind.hpp>\nusing namespace boost::placeholders;' src/main.cpp
+
+# Add boost placeholders to util.h for global access
+RUN sed -i '/#include <boost\/thread.hpp>/a #include <boost/bind.hpp>\nusing namespace boost::placeholders;' src/util.h || true
+
+# Fix .pro file - remove invalid Windows paths and use MXE paths
+RUN sed -i 's|e:/deps/64bit/boost_1_65_0|/build/mxe/usr/i686-w64-mingw32.static/include|' wayawolfcoin.pro && \
+    sed -i 's|e:/deps/64bit/boost_1_65_0/stage/lib|/build/mxe/usr/i686-w64-mingw32.static/lib|' wayawolfcoin.pro && \
+    sed -i 's|e:/deps/64bit/db-4.8.30.NC/build_unix|/build/mxe/usr/i686-w64-mingw32.static/include|' wayawolfcoin.pro && \
+    sed -i 's|e:/deps/64bit/openssl-1.0.2u/include|/build/mxe/usr/i686-w64-mingw32.static/include|' wayawolfcoin.pro && \
+    sed -i 's|e:/deps/64bit/openssl-1.0.2u|/build/mxe/usr/i686-w64-mingw32.static/lib|' wayawolfcoin.pro && \
+    sed -i 's|e:/deps/64bit/|/build/mxe/usr/i686-w64-mingw32.static/|g' wayawolfcoin.pro && \
+    sed -i 's|e:/deps/64bit/qrencode-4.0.2|/build/mxe/usr/i686-w64-mingw32.static|' wayawolfcoin.pro
+
+# Fix Qt clientmodel.cpp - add using namespace for boost placeholders
+RUN sed -i '/#include <QTimer>/a #include <boost/bind.hpp>\nusing namespace boost::placeholders;' src/qt/clientmodel.cpp || true
+
+# Fix Qt walletmodel.cpp - add using namespace for boost placeholders
+RUN sed -i '/#include <QTimer>/a #include <boost/bind.hpp>\nusing namespace boost::placeholders;' src/qt/walletmodel.cpp || true
+
+# Fix rpcwallet.cpp - localtime_s for Windows  
+RUN sed -i 's/localtime_r(\&CurTime, \&Loc_MidNight)/localtime_s(\&Loc_MidNight, \&CurTime)/' src/rpcwallet.cpp
+
+# Disable UPNP
+RUN sed -i 's/USE_UPNP:=1/USE_UPNP:=-/' src/makefile.unix
+
+RUN mkdir -p src/obj src/obj/crypto
+
+# Build leveldb
+RUN cd src/leveldb && \
+    TARGET_OS=OS_WINDOWS_CROSSCOMPILE CC=i686-w64-mingw32.static-gcc CXX=i686-w64-mingw32.static-g++ CXXFLAGS="-O2 -std=gnu++11 -DNDEBUG" make libleveldb.a libmemenv.a
+
+# Fix makefile.mingw for cross-compilation
+# Makefile is already fixed in source, just add CXXFLAGS
+RUN cd src && sed -i 's/^CFLAGS=-mthreads/CFLAGS=-std=c++11 -mthreads/' makefile.mingw
+
+# Build daemon first
+RUN cd src && grep -n "^obj/%.o:" makefile.mingw
+
+RUN cd src && \
+    make -f makefile.mingw \
+    USE_UPNP=0 \
+    LIBS="/build/src/leveldb/libleveldb.a /build/src/leveldb/libmemenv.a -l boost_system-mt-x32 -l boost_filesystem-mt-x32 -l boost_program_options-mt-x32 -l boost_thread-mt-x32 -l db_cxx-5.3 -l ssl -l crypto -l miniupnpc -l z -l ws2_32 -lgdi32 -luser32 -lkernel32 -lmswsock -lshlwapi -liphlpapi" \
+    CC=i686-w64-mingw32.static-gcc \
+    CXX=i686-w64-mingw32.static-g++ \
+    LINK=i686-w64-mingw32.static-g++ \
+    LDFLAGS="-static -Wl,--allow-multiple-definition -L/build/mxe/usr/i686-w64-mingw32.static/lib" \
+    LDHARDENING="" \
+    BOOST_LIB_SUFFIX=-mt-x32 \
+    BOOST_THREAD_LIB_SUFFIX=-mt-x32 \
+    BDB_LIB_SUFFIX=-5.3 \
+    BOOST_LIB_PATH=/build/mxe/usr/i686-w64-mingw32.static/lib \
+    CXXFLAGS="-DBOOST_BIND_GLOBAL_PLACEHOLDERS -std=c++11" \
+    CROSS=1 \
+    -j$(nproc)
+
+RUN rm -rf build Makefile Release && /build/mxe/usr/i686-w64-mingw32.static/qt5/bin/qmake -spec win32-g++ "RELEASE=1" "DEFINES+=BOOST_BIND_GLOBAL_PLACEHOLDERS" "USE_UPNP=-" "LFLAGS+=-Wl,--allow-multiple-definition" wayawolfcoin.pro
+
+# Fix /WIN in Makefile and boost library versions
+RUN sed -i 's|/WIN | |g' Makefile.Release && \
+    sed -i 's|-mgw83-mt-s-1_65|-mt-x32|g' Makefile.Release && \
+    sed -i 's|-Wl,--subsystem,windows|-Wl,--subsystem,windows -Wl,--allow-multiple-definition|g' Makefile.Release
+
+RUN cd /build && \
+    make -j$(nproc)
+
+RUN mkdir -p /output && \
+    cp src/wayawolfcoind.exe /output/ && \
+    cp Wayawolfcoin-qt.exe /output/
