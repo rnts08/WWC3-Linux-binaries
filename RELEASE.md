@@ -11,7 +11,9 @@ This document describes how to create releases for WWC3 (Waya Wolf Coin) binarie
 ## Supported Platforms
 
 - **Linux** (x86_64) - Built using Docker with Ubuntu 16.04 base
-- **Windows** (x86_64) - Built using Docker cross-compilation with MXE (Boost 1.58)
+- **Windows** (x86_64) - Built using Docker cross-compilation with MXE
+  - Daemon: `Dockerfile.windows-mxe` (wayawolfcoind.exe)
+  - Qt GUI: `Dockerfile.windows-mxe-qt` (Wayawolfcoin-qt.exe)
 - **macOS** - Not yet implemented
 
 ## Creating a Release
@@ -66,7 +68,7 @@ gh release view <tag>
 
 Releases include:
 - `WWC3-linux-x64.tar.gz` - Linux binaries (wayawolfcoind + Wayawolfcoin-qt)
-- `WWC3-windows-x64.zip` - Windows binaries (wayawolfcoind.exe)
+- `WWC3-windows-x64.zip` - Windows binaries (wayawolfcoind.exe + Wayawolfcoin-qt.exe)
 
 ## Local Build
 
@@ -80,7 +82,7 @@ docker run --rm ww-qt-static cat /build/src/wayawolfcoind > wayawolfcoind
 docker run --rm ww-qt-static cat /build/Wayawolfcoin-qt > Wayawolfcoin-qt
 ```
 
-### Windows
+### Windows - Daemon Only
 
 ```bash
 git clone --depth 1 https://github.com/Waya-Wolf/WWC3.git wwc3-source
@@ -90,11 +92,22 @@ docker build -f wwc3-source/Dockerfile.windows-mxe -t ww-windows-mxe wwc3-source
 docker run --rm ww-windows-mxe cat /output/wayawolfcoind.exe > wayawolfcoind.exe
 ```
 
+### Windows - Qt GUI (Recommended)
+
+```bash
+git clone --depth 1 https://github.com/Waya-Wolf/WWC3.git wwc3-source
+cp Dockerfile.windows-mxe-qt wwc3-source/
+docker build -f wwc3-source/Dockerfile.windows-mxe-qt -t ww-windows-qt wwc3-source/
+docker run --rm ww-windows-qt cat /output/wayawolfcoind.exe > wayawolfcoind.exe
+docker run --rm ww-windows-qt cat /output/Wayawolfcoin-qt.exe > Wayawolfcoin-qt.exe
+```
+
 ## Compatibility Patches
 
 The WWC3 codebase uses deprecated Boost/ASIO APIs. Patches are stored in `patches/`:
 
-- `boost-compat.patch` - Fixes compatibility with newer Boost (1.66+) and OpenSSL (1.1+)
+- `boost-compat.patch` - Base compatibility fixes for Boost/OpenSSL
+- `qt-boost-compat.patch` - Additional fixes for Qt GUI build (Boost placeholders, ASIO changes)
 
 ### Changes in boost-compat.patch
 
@@ -109,6 +122,23 @@ The WWC3 codebase uses deprecated Boost/ASIO APIs. Patches are stored in `patche
 3. **Boost version checks**:
    - Uses `#if BOOST_VERSION >= 106600` to conditionally compile
 
+### Additional Qt Build Changes (qt-boost-compat.patch)
+
+1. **Boost placeholders**:
+   - Added `#include <boost/bind.hpp>` and `using namespace boost::placeholders;` to:
+     - `src/main.cpp`
+     - `src/qt/clientmodel.cpp`
+     - `src/qt/walletmodel.cpp`
+   - Added `BOOST_BIND_GLOBAL_PLACEHOLDERS` define
+
+2. **SSL context**:
+   - Modified `SSLIOStreamDevice` to accept `io_service&` as first parameter
+   - Updated all call sites in `rpcclient.cpp` and `rpcserver.cpp`
+
+3. **Windows-specific**:
+   - Changed `localtime_r` to `localtime_s` in `src/rpcwallet.cpp`
+   - Added `BOOST_ERROR_CODE_HEADER_ONLY` to avoid multiple definition errors
+
 ## Workflow Details
 
 ### Linux Build
@@ -116,10 +146,16 @@ The WWC3 codebase uses deprecated Boost/ASIO APIs. Patches are stored in `patche
 - Builds both daemon (wayawolfcoind) and Qt GUI (Wayawolfcoin-qt)
 - Static linking for OpenSSL, Boost, BDB, miniupnpc
 
-### Windows Build  
+### Windows Build - Daemon
 - Uses `Dockerfile.windows-mxe` (MXE with Boost 1.58)
 - Builds daemon only (wayawolfcoind.exe)
 - Applies `patches/boost-compat.patch` for compatibility
+
+### Windows Build - Qt GUI
+- Uses `Dockerfile.windows-mxe-qt` (MXE with Qt5)
+- Builds both daemon (wayawolfcoind.exe) and Qt GUI (Wayawolfcoin-qt.exe)
+- Applies source code patches for Boost compatibility
+- Requires ~30 minutes to build (Qt compilation)
 
 ## Troubleshooting
 
@@ -134,6 +170,16 @@ The WWC3 codebase uses deprecated Boost/ASIO APIs. Patches are stored in `patche
 ### Upload fails
 - Ensure `permissions: contents: write` is set in workflow
 - Verify the release tag exists
+
+### Windows Qt Build - Multiple Definition Error
+If you see `multiple definition of boost::system::error_code::location() const::loc`:
+- Ensure `BOOST_ERROR_CODE_HEADER_ONLY` is defined
+- Add `-Wl,--allow-multiple-definition` to LDFLAGS
+
+### Windows Qt Build - Placeholder Errors
+If you see `_1 was not declared in this scope`:
+- Ensure `BOOST_BIND_GLOBAL_PLACEHOLDERS` is defined
+- Add `#include <boost/bind.hpp>` and `using namespace boost::placeholders;` to affected files
 
 ## Future Enhancements
 
